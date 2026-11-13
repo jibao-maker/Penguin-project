@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
+//Create new three.js scene, camera
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe8ff);
 
@@ -24,7 +25,7 @@ function translationMatrix(tx, ty, tz) {
 }
 
 
-
+//scene environment
 scene.add(new THREE.AmbientLight(0xffffff, 1.2));
 
 const sunlight = new THREE.DirectionalLight(0xffffff, 2);
@@ -64,6 +65,8 @@ finish.rotation.x = -Math.PI / 2;
 finish.position.set(0, -0.07, -65);
 scene.add(finish);
 
+
+//penguins
 function createPenguin(color) {
     const penguin = new THREE.Group();
     const black = new THREE.MeshPhongMaterial({ color });
@@ -105,9 +108,9 @@ function createPenguin(color) {
 }
 
 const penguins = [
-    { mesh: createPenguin(0x181818), x: 0, z: 8, speed: 6 },    
-    { mesh: createPenguin(0x314a8a), x: -3, z: 8, speed: 5.3 }, 
-    { mesh: createPenguin(0x6a3c75), x: 3, z: 8, speed: 5.7 }   
+    { mesh: createPenguin(0x181818), x: 0, z: 8, speed: 6, spin: 0 },
+    { mesh: createPenguin(0x314a8a), x: -3, z: 8, speed: 5.3, spin: 0 },
+    { mesh: createPenguin(0x6a3c75), x: 3, z: 8, speed: 5.7, spin: 0 }
 ];
 
 const player = penguins[0];
@@ -121,6 +124,18 @@ function onKeyDown(event) {
     if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') keys.left = true;
     if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') keys.right = true;
     if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') keys.up = true;
+
+    if (event.code === 'Space') {
+        event.preventDefault();   // stops the page from scrolling
+        if (!player.spinning) {
+            player.spinning = true;
+            if (player.touching) {
+                scene.remove(player.touching);
+                obstacles.splice(obstacles.indexOf(player.touching), 1);
+                player.touching = null;
+            }
+        }
+    }
 }
 
 function onKeyUp(event) {
@@ -139,19 +154,55 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
+
+const penguinBox = new THREE.Box3();
+const blockBox = new THREE.Box3();
+
+// places the penguin's mesh at (x, z) and turns it by its spin angle
+function updatePenguinMatrix(p) {
+    p.mesh.matrix.copy(
+        translationMatrix(p.x, 0, p.z).multiply(new THREE.Matrix4().makeRotationY(p.spin))
+    );
+}
+
+// pushes the penguin out of any ice block it overlaps and returns that block (or null)
+function onIceBlockCollision(p) {
+    penguinBox.setFromObject(p.mesh);
+
+    for (const block of obstacles) {
+        blockBox.setFromObject(block);
+
+        if (penguinBox.intersectsBox(blockBox)) {
+            p.z += blockBox.max.z - penguinBox.min.z;
+            updatePenguinMatrix(p);
+            return block;
+        }
+    }
+    return null;
+}
+
 function animate() {
     requestAnimationFrame(animate);
     const dt = Math.min(clock.getDelta(), 0.05);
     if (keys.left) player.x -= 5 * dt;
     if (keys.right) player.x += 5 * dt;
     player.x = THREE.MathUtils.clamp(player.x, -5, 5);
+
+    if (player.spinning) {
+        player.spin += (Math.PI * 2 / 0.5) * dt;       
+        if (player.spin >= Math.PI * 2) {
+            player.spin = 0;
+            player.spinning = false;
+        }
+    }
+
     for (let i = 0; i < penguins.length; i++) {
         const p = penguins[i];
         const speed = p.speed + (i === 0 && keys.up ? 3 : 0);
         p.z = Math.max(-65, p.z - speed * dt);
 
-
-        p.mesh.matrix.copy(translationMatrix(p.x, 0, p.z));
+        updatePenguinMatrix(p);
+        p.touching = onIceBlockCollision(p);
     }
 
     const desiredCameraPosition = new THREE.Vector3(player.x, 8, player.z + 15);
