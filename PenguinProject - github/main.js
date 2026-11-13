@@ -45,7 +45,17 @@ const track = new THREE.Mesh(new THREE.PlaneGeometry(12, 92), iceMaterial);
 track.rotation.x = -Math.PI / 2;
 track.position.set(0, -0.10, -30);
 scene.add(track);
+
+//Obstacle / Present Adding
+const obs_count = 3;
 const obstacles = [];
+let obs_pos = [];
+
+//rng for placement of objects
+function rng(min, max) {
+    return Math.random() * (max - min) + min
+}
+
 function addIceBlock(x, z) {
     const block = new THREE.Mesh(
         new THREE.BoxGeometry(1.5, 1.5, 1.5),
@@ -55,8 +65,30 @@ function addIceBlock(x, z) {
     scene.add(block);
     obstacles.push(block);
 }
-addIceBlock(0, -13);
-addIceBlock(2.5, -33);
+
+//MAX X = -5.25
+//MIN X = 5.25
+//MAX Z = -63.75
+//MIN Z = 15.25
+
+//Add the ice blocks
+let i = 0;
+while (i < obs_count) {
+    let xpos = rng(-5.25, 5.25);
+    let zpos = rng(-63.75, 15.25);
+    
+    //Keep track of each obstacle's location (make sure no two obstacles are assigned to same location)
+    let point = String(xpos) + " " + String(zpos);
+    
+    //Add ice block and advance only if point is unique
+    if (!obs_pos.includes(point)){
+        obs_pos.push(point);
+        addIceBlock(xpos, zpos);
+        i++;
+    }
+    
+}
+
 const finish = new THREE.Mesh(
     new THREE.PlaneGeometry(12, 1),
     new THREE.MeshBasicMaterial({ color: 0xffd166, side: THREE.DoubleSide })
